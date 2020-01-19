@@ -1,7 +1,7 @@
 # INTEGRAL-INVADERS
 One Player Assembly X86 Game 
 This is a simple game to make you learn integration i call it genius integral invaders
-because it is hard you must solve 6 integrations in 60 min to win 
+because it is hard you must solve 6 integrations in 60 second to win 
 
 # Main Menu
 ![MENUE](https://user-images.githubusercontent.com/42709288/72674557-df039400-3a80-11ea-8cf5-9cf483ae68d0.png)

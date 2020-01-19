@@ -12,9 +12,12 @@ you can choose your player by f1, f2
 
 ![BULLET WITH EGG](https://user-images.githubusercontent.com/42709288/72674682-1b83bf80-3a82-11ea-8d1d-02509cfdf571.png)
 
+if you win this game you will get a "you won" statement as this and if you lose ,you will get a black screen and the program will
+exit in both case
 ![YOUWON](https://user-images.githubusercontent.com/42709288/72674615-5e916300-3a81-11ea-88ff-34176bdce712.png)
 
-as you see you can move left and right with left and right arrows and hit space to fire your bullet
+as you see you can move left and right with left and right arrows and hit space to fire your bullet if you get bored from the game you can
+press "ESC" at any time and the game will be closed
 
 # configuration 
 ![2020-01-19_6-05-31](https://user-images.githubusercontent.com/42709288/72674652-c34cbd80-3a81-11ea-8b3e-29b6d6cec5bd.png)

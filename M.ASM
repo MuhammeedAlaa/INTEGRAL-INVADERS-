@@ -52,6 +52,7 @@ COLISION    DW 0
 RIGHT DW 0
 WRONG DW 0
 CLEARPROBLEM DW 0
+ANSWERS DW 0
 
 PLAYERMWEDTH DW 135
 PLAYERMHEIGHT DW 128
@@ -76,7 +77,7 @@ BULET2MWEDTH  DW 100
 BULET2MHEIGHT DW 100
 BULET2STARTPOSY DW 492
 
-
+NOQ DW 1
 
 MILITARYSTARTPOSX DW ?
 PARTYSTARTPOSX DW ?
@@ -30523,19 +30524,21 @@ DATA13 ENDS
 ;--------------------------------------------------------
                     .CODE                                                 
 MAIN                PROC FAR      
-                    MOV AH,0
-                    MOV AL,13H
-                    INT 10H
+                    STARTGAME:
                     ASSUME DS:DATA6
                     MOV AX , DATA6
                     MOV DS , AX
+                   
+                    MOV AH,0
+                    MOV AL,13H
+                    INT 10H
                     MOV SI, OFFSET BACKGROUND
                     DRAW_OBJECT 200,320,0,0
 
                     ASSUME DS:DATA4
                     MOV AX , DATA4
                     MOV DS , AX
-                    
+                    CALL RESTART                    
                     CHECKMENUE:
                     MOV AH, 1
                     INT 16H
@@ -30554,10 +30557,21 @@ MAIN                PROC FAR
                     
                     F2LABEL:
                      CMP AH, 3CH 
-                     JNE CHECKMENUE
+                     JNE FINISHIT
                      CALL PLAYER2INFO
                      JMP START
-
+                     FINISHIT: 
+                     CMP AL,1BH
+                    JNE CHECKMENUE
+                    ;{ OPEN VEDIO MODE
+                        MOV     AX, 4F02H
+                        MOV     BX, 105H
+                        INT     10H
+                    ;}
+                    MOV AH,4CH
+                    INT 21H
+                    JMP START
+                    SKIP6: JMP STARTGAME
                     START:
                         ASSUME DS:DATA4
                         MOV AX , DATA4
@@ -30612,8 +30626,9 @@ MAIN                PROC FAR
                     MOV AL,'G'
                     MOV BL,2FH
                     INT 10H
-
-
+                    JMP CON5
+                SKIP5:    JMP SKIP6
+                    CON5:
                 ;{ CURSUR = (34H,1AH)
                     MOV     AH, 2
                     MOV     DX, 1078H
@@ -30708,16 +30723,20 @@ MAIN                PROC FAR
                 ;}
                     CALL DRAWCHIKENS
                     CALL DRAWPLAYER
+                    JMP CON4
+             SKIP4: JMP SKIP5
+                    CON4:
                 MAINLOOP:                          
               ;{ DELAY 0.125 SECOND  WHERE DELAY IN MELLISECOND IS CXDX  CX AND MSB AND DX AS LSB
-                     MOV     CX, 00H
-                     MOV     DX, 0C300H
+                     MOV     AL, 0
+                     MOV     CX, 0
+                     MOV     DX, 0C3FFH
                      MOV     AH, 86H
                      INT     15H
                ;}
                CALL UPDATEBULETANDCOLLSION
                CALL UPDATEPROBLEMANDMCQ
-
+               CALL WINGAME
                 ;{ CURSUR = (34H,1AH)
                     MOV     AH, 2
                     MOV     DX, 1277H
@@ -30733,6 +30752,7 @@ MAIN                PROC FAR
                     MOV BL,2FH
                     INT 10H
                ;}
+               
                CMP RIGHT,6
                JNE MOVEC
                MOV WON,1
@@ -30774,10 +30794,18 @@ MAIN                PROC FAR
     ;}
     CMP WON,1
     JNE SKIP10
+    JMP CON3
+    SKIP3: JMP SKIP4
+    CON3:
      YWN 40,40,150,220,01
     LOSS:
-    MOV AH,4CH
-    INT 21H
+                ;{ DELAY 0.125 SECOND  WHERE DELAY IN MELLISECOND IS CXDX  CX AS MSB AND DX AS LSB
+                     MOV     CX, 0FH
+                     MOV     DX, 0FFFFH
+                     MOV     AH, 86H
+                     INT     15H
+               ;}
+    JMP SKIP3
 MAIN                ENDP  
 
 ;------------------------------------------------------------------------
@@ -30796,6 +30824,30 @@ CLEARKEYBOARDBUFFER     PROC    NEAR
     RETN
 ;}
 CLEARKEYBOARDBUFFER     ENDP
+
+WINGAME     PROC    NEAR
+;{
+    CMP ANSWERS,6
+    JNE RUN
+    MOV AX,RIGHT
+    MOV BX,WRONG
+    CMP BX,AX
+    JL WINIT
+    JMP LOSSIT
+    WINIT:
+    SUB AX,BX
+    CMP AX,3
+    JGE NOWWIN
+    JMP LOSSIT
+    NOWWIN:
+    MOV RIGHT,6
+    JMP RUN
+    LOSSIT:
+    MOV WRONG,6
+    RUN:
+RETN
+;}
+WINGAME     ENDP
 
 PLAYER1INFO             PROC   NEAR
 ;{
@@ -30851,6 +30903,7 @@ UPDATEPROBLEMANDMCQ              PROC   NEAR
     MOV INTEST,0
     MOV COLISION,0
     MOV CLEARPROBLEM,0
+    INC ANSWERS
     NOPROBLEM:
     RETN
 ;}
@@ -30894,40 +30947,36 @@ DRAWPROBLEMS            PROC    NEAR
     RETN
 ;}
 DRAWPROBLEMS             ENDP
-
 UPDATEBULETANDCOLLSION              PROC   NEAR
 ;{
     CMP BULETEXIST,1
     JNE UPDATED
     CLEAR BULETHEIGHT,BULETWEDTH,BULETSTARTPOSX,BULETSTARTPOSY
     SUB BULETSTARTPOSY,2
-    CMP BULETSTARTPOSY, 138
-    JLE COLIDE
+    CALL SWEATERCOLISIONS
+    CALL REDCOLISIONS
+    CALL MILITARYCOLISIONS
+    CALL MAGENTICCOLISIONS
+    CALL PARTYCOLISIONS
+    CALL BOSSCOLISIONS
+    CMP NOQ,1
+    JNE COLIDE
+    CMP BULETSTARTPOSY,138
+    JLE BU1
     CALL DRAWBULET
     JMP UPDATED
     COLIDE:
     CALL DRAWPROBLEM
-    
+    BU1:    
     MOV BULETEXIST,0
     CMP CHOSSEDPLAYER, 1
     JNE BU2
     CALL PLAYER1INFO
-    CALL SWEATERCOLISIONS
-    CALL REDCOLISIONS
-    CALL MILITARYCOLISIONS
-    CALL MAGENTICCOLISIONS
-    CALL PARTYCOLISIONS
-    CALL BOSSCOLISIONS
     JMP UPDATED
     BU2:
     CALL PLAYER2INFO
-    CALL SWEATERCOLISIONS
-    CALL REDCOLISIONS
-    CALL MILITARYCOLISIONS
-    CALL MAGENTICCOLISIONS
-    CALL PARTYCOLISIONS
-    CALL BOSSCOLISIONS
     UPDATED:
+    MOV NOQ,1
     RETN
 ;}
 UPDATEBULETANDCOLLSION              ENDP
@@ -30945,10 +30994,14 @@ BOSSCOLISIONS     PROC    NEAR
     JL DONEBOSS
     CMP BULETSTARTPOSX,BX
     JG  DONEBOSS
+    CMP BULETSTARTPOSY,138
+    JG DONEBOSS
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,BOSSSTARTPOSX,STARTPOSY
+    MOV NOQ,0
     MOV COLISION,1
     MOV BOSSMODELEXIST,0
     DONEBOSS:
+
     RETN
 ;}
 BOSSCOLISIONS     ENDP
@@ -30966,8 +31019,11 @@ SWEATERCOLISIONS     PROC    NEAR
     JL DONESWEATER
     CMP BULETSTARTPOSX,BX
     JG  DONESWEATER
+    CMP BULETSTARTPOSY,138
+    JG DONESWEATER
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,SWEATERSTARTPOSX,STARTPOSY
     MOV COLISION,1
+    MOV NOQ,0
     MOV SWEATERMODELEXIST,0
     DONESWEATER:
     RETN
@@ -30987,8 +31043,11 @@ REDCOLISIONS     PROC    NEAR
     JL DONERED
     CMP BULETSTARTPOSX,BX
     JG  DONERED
+    CMP BULETSTARTPOSY,138
+    JG DONERED
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,REDSTARTPOSX,STARTPOSY
     MOV COLISION,1
+    MOV NOQ,0
     MOV REDMODELEXIST,0
     DONERED:
     RETN
@@ -31010,8 +31069,11 @@ MAGENTICCOLISIONS     PROC    NEAR
     JL DONEMAGENTIC
     CMP BULETSTARTPOSX,BX
     JG  DONEMAGENTIC
+    CMP BULETSTARTPOSY,138
+    JG DONEMAGENTIC
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,MAGNETICSTARTPOSX,STARTPOSY
     MOV COLISION,1
+    MOV NOQ,0
     MOV MAGNETICMODELEXIST,0
     DONEMAGENTIC:
     RETN
@@ -31032,8 +31094,11 @@ PARTYCOLISIONS     PROC    NEAR
     JL DONEPARTY
     CMP BULETSTARTPOSX,BX
     JG  DONEPARTY
+    CMP BULETSTARTPOSY,138
+    JG DONEPARTY
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,PARTYSTARTPOSX,STARTPOSY
     MOV COLISION,1
+    MOV NOQ,0
     MOV PARTYMODELEXIST,0
     DONEPARTY:
     RETN
@@ -31052,7 +31117,10 @@ MILITARYCOLISIONS     PROC    NEAR
     JL DONEMILITARY
     CMP BULETSTARTPOSX,BX
     JG  DONEMILITARY
+    CMP BULETSTARTPOSY,138
+    JG DONEMILITARY
     MOV COLISION,1
+    MOV NOQ,0
     CLEAR CHIKENHEIGHT,CHIKENWEDTH,MILITARYSTARTPOSX,STARTPOSY
     DONEMILITARY:
     RETN
@@ -31229,6 +31297,7 @@ USERINPUT               PROC   NEAR
     MOVELEFT:
         CMP AH, 4BH 
         JNE MOVERIGHT
+        MOV PRESSED,1
         CMP PLAYSTARTPOSX,10
         JLE SKIP1
         CLEAR PLAYERMHEIGHT,PLAYERMWEDTH,PLAYSTARTPOSX,PLAYSTARTPOSY
@@ -31237,7 +31306,6 @@ USERINPUT               PROC   NEAR
         SUB BULET1STARTPOSX, 3
         SUB BULET2STARTPOSX, 3
         CALL DRAWPLAYER
-        MOV PRESSED,1
     JMP EXIT
     
     SKIP1:
@@ -31246,6 +31314,7 @@ USERINPUT               PROC   NEAR
     MOVERIGHT:
         CMP AH, 4DH 
         JNE FIRE
+        MOV PRESSED,1
         CMP PLAYSTARTPOSX,744
         JGE EXIT
         CLEAR PLAYERMHEIGHT,PLAYERMWEDTH,PLAYSTARTPOSX,PLAYSTARTPOSY
@@ -31254,17 +31323,16 @@ USERINPUT               PROC   NEAR
         ADD BULET2STARTPOSX, 3
         ADD BULET1STARTPOSX, 3
         CALL DRAWPLAYER
-        MOV PRESSED,1
     FIRE:  
         CMP AL, 20H
         JNE EXIT
+        MOV PRESSED,1  
         CMP BULETEXIST, 0
         JNE EXIT
         CMP COLISION,0
         JNE EXIT
         MOV BULETEXIST, 1
-        CALL DRAWBULET
-        MOV PRESSED,1    
+        CALL DRAWBULET  
     EXIT:
         CMP PRESSED,1
         JNE TEEST
@@ -31409,23 +31477,25 @@ DRAWPROBLEM           PROC  NEAR
 ;{  
   RANDOMPROBLEM:
   RANDOMIZE 0, 5, RANDOMIZEDPROBLEM, RANDSEED  
+  
   CMP RANDOMIZEDPROBLEM,0
   JNE TAKEPROBLEM2
   CMP PROBLEM1TAKEN,1
-  JNE TAKEPROBLEM2
+  JNE LLL
   MOV INTEST,1
   DEC PROBLEM1TAKEN
-  MOV PROBLEMINTEST,1
+  MOV PROBLEMINTEST,0
   JMP TAKED
   
   TAKEPROBLEM2:
   CMP RANDOMIZEDPROBLEM,1
   JNE TAKEPROBLEM3
+  LLL:
   CMP PROBLEM2TAKEN,1
-  JNE TAKEPROBLEM3
+  JNE TTT
   MOV INTEST,1
   DEC PROBLEM2TAKEN
-    MOV PROBLEMINTEST,2
+  MOV PROBLEMINTEST,1
   JMP TAKED
   
   SKIP2: JMP RANDOMPROBLEM
@@ -31433,31 +31503,34 @@ DRAWPROBLEM           PROC  NEAR
   TAKEPROBLEM3:
   CMP RANDOMIZEDPROBLEM,2
   JNE TAKEPROBLEM4
+  TTT:
   CMP PROBLEM3TAKEN,1
-  JNE TAKEPROBLEM4
+  JNE CCC
   MOV INTEST,1
   DEC PROBLEM3TAKEN
-    MOV PROBLEMINTEST,3
+  MOV PROBLEMINTEST,2
   JMP TAKED
 
   TAKEPROBLEM4:
   CMP RANDOMIZEDPROBLEM,3
   JNE TAKEPROBLEM5
+  CCC:
   CMP PROBLEM4TAKEN,1
-  JNE TAKEPROBLEM5
+  JNE FFFF
   MOV INTEST,1
   DEC PROBLEM4TAKEN
-    MOV PROBLEMINTEST,4
+  MOV PROBLEMINTEST,3
   JMP TAKED
 
   TAKEPROBLEM5:
   CMP RANDOMIZEDPROBLEM,4
   JNE TAKEPROBLEM6
+  FFFF:
   CMP PROBLEM5TAKEN,1
   JNE TAKEPROBLEM6
   MOV INTEST,1
   DEC PROBLEM5TAKEN
-    MOV PROBLEMINTEST,5
+  MOV PROBLEMINTEST,4
   JMP TAKED
 
   TAKEPROBLEM6:
@@ -31465,7 +31538,7 @@ DRAWPROBLEM           PROC  NEAR
   JNE SKIP2
   MOV INTEST,1
   DEC PROBLEM6TAKEN
-  MOV PROBLEMINTEST,6
+  MOV PROBLEMINTEST,5
   TAKED:
   RETN
 ;}
@@ -31581,6 +31654,65 @@ DRAWMILITARYMODEL       PROC    NEAR
     RETN
 ;}
  DRAWMILITARYMODEL       ENDP
+ RESTART            PROC    NEAR
+ ;{
+                    MOV ANSWERS,0
+                    MOV RIGHT,0
+                    MOV WRONG,0
+                    MOV WON,0
+                    MOV BOSSMODELDRAWEN,1
+                    MOV SWEATERMODELDRAWEN,1
+                    MOV REDMODELDRAWEN,1
+                    MOV MAGNETICMODELDRAWEN,1
+                    MOV MILITARYMODELDRAWEN,1
+                    MOV PARTYMODELDRAWEN,1
+                    
+
+
+                    MOV BOSSMODELEXIST, 1  
+                    MOV REDMODELEXIST, 1
+                    MOV MAGNETICMODELEXIST, 1 
+                    MOV SWEATERMODELEXIST, 1
+                    MOV MILITARYMODELEXIST, 1 
+                    MOV PARTYMODELEXIST, 1
+                    MOV PRESSED, 0
+                    MOV RANDOMIZEDCHIKEN, 0
+                    MOV CHIKENDRAWN, 6
+                    MOV STARTPOSX, 10
+                    MOV STARTPOSY, 10   
+                    MOV MARGEN, 10
+
+                    MOV PROBLEMSTARTPOSX, 512
+                    MOV PROBLEMSTARTPOSY, 138
+                    MOV INTEST, 0
+
+                   MOV PROBLEM1TAKEN, 1  
+                   MOV PROBLEM2TAKEN, 1
+                   MOV PROBLEM3TAKEN, 1 
+                   MOV PROBLEM4TAKEN, 1
+                   MOV PROBLEM5TAKEN, 1 
+                   MOV PROBLEM6TAKEN, 1
+                   MOV PROBLEMINTAILSTARTPOSY, 138
+                   MOV RANDOMIZEDPROBLEM, 0
+                   MOV COLISION, 0
+                   MOV CLEARPROBLEM, 0
+                   MOV PLAYSTARTPOSX, 512
+                   MOV PLAYSTARTPOSY, 612
+                   MOV CHOSSEDPLAYER, 1
+
+                   MOV BULETEXIST, 0
+
+                   MOV BULET1STARTPOSX, 560
+                   MOV BULET1STARTPOSY, 152
+
+
+                   MOV BULET2STARTPOSX, 525
+                   MOV BULET2STARTPOSY, 492
+                   MOV NOQ,1
+                   RETN
+
+ ;}
+ RESTART            ENDP
 
 
 DRAWSWEATERMODEL       PROC    NEAR
